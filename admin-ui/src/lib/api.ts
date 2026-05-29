@@ -61,6 +61,18 @@ export const api = {
 
   system: () => request<SystemInfo>('/api/system'),
 
+  updateProfile: (id: number, data: {
+    first_name: string; last_name: string; username: string;
+    phone: string; about: string; clear_photo: boolean
+  }) =>
+    request(`/api/users/${id}/profile`, { method: 'POST', body: JSON.stringify(data) }),
+
+  changeID: (id: number, new_id: number) =>
+    request<{ ok: string; old_id: number; new_id: number }>(
+      `/api/users/${id}/change-id`,
+      { method: 'POST', body: JSON.stringify({ new_id }) }
+    ),
+
   bulkFlags: (ids: number[], flags: Partial<UserFlags>) =>
     request<{ ok: string; updated: number }>('/api/users/bulk-flags', {
       method: 'POST',

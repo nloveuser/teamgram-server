@@ -184,6 +184,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.requireAuth(w, r, s.handleStats)
 	case p == "/api/users" && r.Method == http.MethodGet:
 		s.requireAuth(w, r, s.handleUsers)
+	case strings.HasPrefix(p, "/api/users/") && strings.HasSuffix(p, "/profile"):
+		s.requireAuth(w, r, s.handleUpdateProfile)
+	case strings.HasPrefix(p, "/api/users/") && strings.HasSuffix(p, "/change-id"):
+		s.requireAuth(w, r, s.handleChangeID)
 	case strings.HasPrefix(p, "/api/users/") && strings.HasSuffix(p, "/ban"):
 		s.requireAuth(w, r, s.handleBanUser)
 	case strings.HasPrefix(p, "/api/users/") && strings.HasSuffix(p, "/unban"):
@@ -487,6 +491,186 @@ func (s *Server) handleUnbanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+}
+
+// ── Profile update ────────────────────────────────────────────────────────────
+
+func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id, ok := userIDFromPath(r.URL.Path, "/profile")
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var body struct {
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Username  string `json:"username"`
+		Phone     string `json:"phone"`
+		About     string `json:"about"`
+		ClearPhoto bool  `json:"clear_photo"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+		return
+	}
+
+	tx, err := s.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	// Fetch current username to detect change
+	var oldUsername string
+	tx.QueryRowContext(r.Context(), `SELECT username FROM users WHERE id=?`, id).Scan(&oldUsername) //nolint:errcheck
+
+	// Build update
+	q := `UPDATE users SET first_name=?, last_name=?, phone=?, about=?`
+	args := []any{body.FirstName, body.LastName, body.Phone, body.About}
+	if body.Username != "" {
+		q += `, username=?`
+		args = append(args, body.Username)
+	}
+	if body.ClearPhoto {
+		q += `, photo_id=0`
+	}
+	q += ` WHERE id=?`
+	args = append(args, id)
+
+	if _, err := tx.ExecContext(r.Context(), q, args...); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Sync username table
+	if body.Username != "" && body.Username != oldUsername {
+		// Soft-delete old entry
+		if oldUsername != "" {
+			tx.ExecContext(r.Context(), //nolint:errcheck
+				`UPDATE username SET deleted=1 WHERE peer_type=0 AND peer_id=? AND username=?`,
+				id, oldUsername)
+		}
+		// Upsert new entry (peer_type=0 = user)
+		tx.ExecContext(r.Context(), //nolint:errcheck
+			`INSERT INTO username (username, peer_type, peer_id, deleted)
+			 VALUES (?, 0, ?, 0)
+			 ON DUPLICATE KEY UPDATE peer_id=?, deleted=0`,
+			body.Username, id, id)
+	}
+
+	if err := tx.Commit(); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+}
+
+// ── Change ID ─────────────────────────────────────────────────────────────────
+
+func (s *Server) handleChangeID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	oldID, ok := userIDFromPath(r.URL.Path, "/change-id")
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var body struct {
+		NewID int64 `json:"new_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.NewID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "new_id required"})
+		return
+	}
+	if body.NewID == oldID {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "same id"})
+		return
+	}
+
+	// Check new ID not taken
+	var exists int
+	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE id=?`, body.NewID).Scan(&exists) //nolint:errcheck
+	if exists > 0 {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "id already taken"})
+		return
+	}
+
+	tx, err := s.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	type upd struct{ q string }
+	// Tables and columns referencing user id
+	updates := []string{
+		fmt.Sprintf(`UPDATE users SET id=%d WHERE id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE bots SET bot_id=%d WHERE bot_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE bots SET creator_user_id=%d WHERE creator_user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE auth_users SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_profile_photos SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_contacts SET owner_user_id=%d WHERE owner_user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_contacts SET contact_user_id=%d WHERE contact_user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_presences SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_notify_settings SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_peer_blocks SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_peer_settings SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_privacies SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE user_settings SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE username SET peer_id=%d WHERE peer_type=0 AND peer_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE chat_participants SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE chat_participants SET inviter_user_id=%d WHERE inviter_user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE dialogs SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE devices SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE dialog_filters SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE phone_books SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE predefined_users SET registered_user_id=%d WHERE registered_user_id=%d`, body.NewID, oldID),
+	}
+	// Optional tables (may not exist in base schema)
+	optional := []string{
+		fmt.Sprintf(`UPDATE user_pts_updates SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE auth_seq_updates SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE messages SET user_id=%d WHERE user_id=%d`, body.NewID, oldID),
+		fmt.Sprintf(`UPDATE messages SET sender_user_id=%d WHERE sender_user_id=%d`, body.NewID, oldID),
+	}
+
+	done := []string{}
+	for _, q := range updates {
+		if _, err := tx.ExecContext(r.Context(), q); err != nil {
+			tx.Rollback() //nolint:errcheck
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error(), "query": q})
+			return
+		}
+		done = append(done, q[:min(len(q), 60)])
+	}
+	for _, q := range optional {
+		tx.ExecContext(r.Context(), q) //nolint:errcheck — best-effort
+	}
+
+	if err := tx.Commit(); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":     "true",
+		"old_id": oldID,
+		"new_id": body.NewID,
+	})
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (s *Server) handleUserFlags(w http.ResponseWriter, r *http.Request) {

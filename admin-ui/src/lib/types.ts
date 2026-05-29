@@ -24,6 +24,7 @@ export interface User {
   restriction_reason: string
   color: number
   profile_color: number
+  photo_id: number
   deleted: boolean
   state: number
   date2: number
