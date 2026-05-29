@@ -45,8 +45,9 @@ export const api = {
     return request<UserList>(`/api/users?${p}`)
   },
 
-  banUser:   (id: number) => request(`/api/users/${id}/ban`,   { method: 'POST' }),
-  unbanUser: (id: number) => request(`/api/users/${id}/unban`, { method: 'POST' }),
+  banUser:    (id: number) => request(`/api/users/${id}/ban`,    { method: 'POST' }),
+  unbanUser:  (id: number) => request(`/api/users/${id}/unban`,  { method: 'POST' }),
+  deleteUser: (id: number) => request(`/api/users/${id}/delete`, { method: 'POST' }),
 
   setFlags: (id: number, flags: UserFlags) =>
     request(`/api/users/${id}/flags`, {

@@ -1,10 +1,10 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/page": "app/page.js",
   "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
   "/(admin)/bots/page": "app/(admin)/bots/page.js",
-  "/(admin)/system/page": "app/(admin)/system/page.js",
   "/(admin)/chats/page": "app/(admin)/chats/page.js",
   "/(admin)/dashboard/page": "app/(admin)/dashboard/page.js",
+  "/(admin)/system/page": "app/(admin)/system/page.js",
   "/(admin)/users/page": "app/(admin)/users/page.js"
 }

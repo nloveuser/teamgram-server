@@ -192,6 +192,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.requireAuth(w, r, s.handleBanUser)
 	case strings.HasPrefix(p, "/api/users/") && strings.HasSuffix(p, "/unban"):
 		s.requireAuth(w, r, s.handleUnbanUser)
+	case strings.HasPrefix(p, "/api/users/") && strings.HasSuffix(p, "/delete"):
+		s.requireAuth(w, r, s.handleDeleteUser)
 	case strings.HasPrefix(p, "/api/users/") && strings.HasSuffix(p, "/flags"):
 		s.requireAuth(w, r, s.handleUserFlags)
 	case p == "/api/chats":
@@ -386,6 +388,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		RestrictionReason string `json:"restriction_reason"`
 		Color             int32  `json:"color"`
 		ProfileColor      int32  `json:"profile_color"`
+		PhotoID           int64  `json:"photo_id"`
 		Deleted           bool   `json:"deleted"`
 		State             int32  `json:"state"`
 		Date2             int64  `json:"date2"`
@@ -411,7 +414,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 	cols := `id, first_name, last_name, username, phone, COALESCE(about,''),
 	         is_bot, ` + premiumExpr + `, verified, scam, fake, support,
 	         restricted, COALESCE(restriction_reason,''), ` + colorExpr + `, ` + profileColorExpr + `,
-	         deleted, state, ` + dateExpr
+	         photo_id, deleted, state, ` + dateExpr
 
 	var (
 		rows  *sql.Rows
@@ -447,7 +450,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		rows.Scan(&u.ID, &u.FirstName, &u.LastName, &u.Username, &u.Phone, &u.About, //nolint:errcheck
 			&u.IsBot, &u.Premium, &u.Verified, &u.Scam, &u.Fake, &u.Support,
 			&u.Restricted, &u.RestrictionReason, &u.Color, &u.ProfileColor,
-			&u.Deleted, &u.State, &u.Date2)
+			&u.PhotoID, &u.Deleted, &u.State, &u.Date2)
 		items = append(items, u)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"total": total, "page": page, "items": items})
@@ -469,7 +472,34 @@ func (s *Server) handleBanUser(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
 		return
 	}
-	if _, err := s.db.ExecContext(r.Context(), `UPDATE users SET deleted=1, delete_reason='admin_ban' WHERE id=?`, id); err != nil {
+	// Ban: mark deleted + kill all auth sessions so user is immediately kicked
+	_, err := s.db.ExecContext(r.Context(),
+		`UPDATE users SET deleted=1, delete_reason='admin_ban' WHERE id=?`, id)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	// Best-effort: remove active auth sessions
+	s.db.ExecContext(r.Context(), `DELETE FROM auth_users WHERE user_id=?`, id)              //nolint:errcheck
+	s.db.ExecContext(r.Context(), `UPDATE user_presences SET expires_in=0 WHERE user_id=?`, id) //nolint:errcheck
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+}
+
+// handleDeleteUser soft-deletes an account (marks as deleted without "admin_ban" reason).
+// The account appears as "Deleted Account" to others but can be restored.
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id, ok := userIDFromPath(r.URL.Path, "/delete")
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	_, err := s.db.ExecContext(r.Context(),
+		`UPDATE users SET deleted=1, delete_reason='self_deleted', first_name='Deleted', last_name='Account', username='' WHERE id=?`, id)
+	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}

@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { ToastProvider } from '@/components/Toast'
+import { SidebarProvider } from '@/components/SidebarContext'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -15,12 +16,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <ToastProvider>
-      <div className="flex min-h-screen bg-bg">
-        <Sidebar />
-        <main className="flex-1 ml-64 flex flex-col min-h-screen">
-          {children}
-        </main>
-      </div>
+      <SidebarProvider>
+        <div className="flex min-h-screen bg-bg">
+          <Sidebar />
+          {/* lg:ml-64 pushes content aside on desktop; on mobile sidebar overlays */}
+          <main className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0">
+            {children}
+          </main>
+        </div>
+      </SidebarProvider>
     </ToastProvider>
   )
 }

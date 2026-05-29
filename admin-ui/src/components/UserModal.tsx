@@ -131,6 +131,7 @@ export default function UserModal({ user, onClose, onSaved }: Props) {
   const [newID, setNewID]         = useState('')
   const [changingID, setChangingID] = useState(false)
   const [banning, setBanning]       = useState(false)
+  const [deleting, setDeleting]     = useState(false)
 
   async function changeID() {
     const nid = parseInt(newID)
@@ -150,16 +151,28 @@ export default function UserModal({ user, onClose, onSaved }: Props) {
     setBanning(true)
     try {
       if (user.deleted) {
-        await api.unbanUser(user.id); toast.push('User unbanned')
+        await api.unbanUser(user.id); toast.push('User restored')
         onSaved({ ...user, deleted: false })
       } else {
-        if (!confirm(`Ban user ${user.first_name} #${user.id}?`)) { setBanning(false); return }
-        await api.banUser(user.id); toast.push('User banned')
+        if (!confirm(`Ban user ${user.first_name} #${user.id}?\n\nThis will kick active sessions and block login.`)) { setBanning(false); return }
+        await api.banUser(user.id); toast.push('User banned — sessions killed')
         onSaved({ ...user, deleted: true })
       }
       onClose()
     } catch(e) { toast.push((e as Error).message, 'err') }
     finally { setBanning(false) }
+  }
+
+  async function deleteAccount() {
+    if (!confirm(`Mark account #${user.id} as "Deleted Account"?\n\nName will be set to "Deleted Account", username cleared. Reversible via Restore.`)) return
+    setDeleting(true)
+    try {
+      await api.deleteUser(user.id)
+      toast.push('Account marked as deleted')
+      onSaved({ ...user, deleted: true, first_name: 'Deleted', last_name: 'Account', username: '' })
+      onClose()
+    } catch(e) { toast.push((e as Error).message, 'err') }
+    finally { setDeleting(false) }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -349,21 +362,47 @@ export default function UserModal({ user, onClose, onSaved }: Props) {
                 <p className="text-[11px] text-warn">⚠ Requires server cache flush after change. The Teamgram server caches user data in Redis.</p>
               </div>
 
-              {/* Ban / Unban */}
-              <div className={`border rounded-xl p-4 ${user.deleted ? 'bg-ok/5 border-ok/25' : 'bg-err/5 border-err/25'}`}>
-                <div className={`text-sm font-bold mb-1 ${user.deleted ? 'text-ok' : 'text-err'}`}>
-                  {user.deleted ? '✓ Unban User' : '🚫 Ban User'}
+              {/* Restore (if deleted) */}
+              {user.deleted && (
+                <div className="bg-ok/5 border border-ok/25 rounded-xl p-4">
+                  <div className="text-sm font-bold text-ok mb-1">✓ Restore Account</div>
+                  <p className="text-xs text-muted mb-3">Re-activate this account. User will be able to sign in again.</p>
+                  <button onClick={toggleBan} disabled={banning}
+                    className="text-xs font-semibold bg-ok/15 text-ok border border-ok/30 hover:bg-ok/25 rounded-lg px-4 py-2 transition-all disabled:opacity-40">
+                    {banning ? '…' : 'Restore Account'}
+                  </button>
                 </div>
-                <p className="text-xs text-muted mb-3">
-                  {user.deleted
-                    ? 'Restore access for this user account.'
-                    : 'Mark this account as deleted. User will lose access immediately.'}
-                </p>
-                <button onClick={toggleBan} disabled={banning}
-                  className={`text-xs font-semibold rounded-lg px-4 py-2 border transition-all disabled:opacity-40 ${user.deleted ? 'bg-ok/15 text-ok border-ok/30 hover:bg-ok/25' : 'bg-err/15 text-err border-err/30 hover:bg-err/25'}`}>
-                  {banning ? '…' : user.deleted ? 'Unban' : 'Ban User'}
-                </button>
-              </div>
+              )}
+
+              {/* Ban */}
+              {!user.deleted && (
+                <div className="bg-err/5 border border-err/25 rounded-xl p-4">
+                  <div className="text-sm font-bold text-err mb-1">🚫 Ban User</div>
+                  <p className="text-xs text-muted mb-3">
+                    Blocks login and kills all active sessions immediately.
+                    Sets <code className="bg-surface px-1 rounded">deleted=1, reason=admin_ban</code>.
+                  </p>
+                  <button onClick={toggleBan} disabled={banning}
+                    className="text-xs font-semibold bg-err/15 text-err border border-err/30 hover:bg-err/25 rounded-lg px-4 py-2 transition-all disabled:opacity-40">
+                    {banning ? '…' : 'Ban & Kick Sessions'}
+                  </button>
+                </div>
+              )}
+
+              {/* Delete Account */}
+              {!user.deleted && (
+                <div className="bg-warn/5 border border-warn/25 rounded-xl p-4">
+                  <div className="text-sm font-bold text-warn mb-1">🗑️ Delete Account</div>
+                  <p className="text-xs text-muted mb-3">
+                    Marks account as "Deleted Account" — name cleared, username removed.
+                    Same as self-deletion. Reversible via Restore.
+                  </p>
+                  <button onClick={deleteAccount} disabled={deleting}
+                    className="text-xs font-semibold bg-warn/15 text-warn border border-warn/30 hover:bg-warn/25 rounded-lg px-4 py-2 transition-all disabled:opacity-40">
+                    {deleting ? '…' : 'Mark as Deleted'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
