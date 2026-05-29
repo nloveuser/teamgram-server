@@ -68,3 +68,9 @@ docs/specs
 
 .pending
 AGENTS.md
+
+node_modules/
+admin-ui/node_modules/
+.next/
+dist/
+build/
