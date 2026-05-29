@@ -11,4 +11,4 @@ Password: changeme
 WebDir: ../admin-ui/out
 
 MySQL:
-  DSN: root:@tcp(127.0.0.1:3306)/teamgram?charset=utf8mb4&parseTime=true
+  DSN: root:@tcp(mysql:3306)/teamgram?charset=utf8mb4&parseTime=true
