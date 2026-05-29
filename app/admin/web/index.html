@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Teamgram Admin Panel</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --c-bg:        #0d1117;
+  --c-surface:   #161b22;
+  --c-surface2:  #1c2230;
+  --c-border:    #21262d;
+  --c-border2:   #30363d;
+  --c-text:      #e6edf3;
+  --c-muted:     #7d8590;
+  --c-accent:    #2f81f7;
+  --c-accent2:   #388bfd;
+  --c-green:     #3fb950;
+  --c-red:       #f85149;
+  --c-orange:    #d29922;
+  --c-purple:    #a371f7;
+  --sidebar-w:   256px;
+  --header-h:    56px;
+  --radius:      10px;
+  --shadow:      0 8px 32px rgba(0,0,0,.4);
+}
+
+html, body { height: 100%; font-family: 'Inter', -apple-system, sans-serif; background: var(--c-bg); color: var(--c-text); font-size: 14px; line-height: 1.5; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-border2); border-radius: 3px; }
+
+button { cursor: pointer; font-family: inherit; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px; font-size: 13px;
+  font-weight: 600; border: 1px solid transparent; transition: all .15s;
+  white-space: nowrap; background: none;
+}
+.btn-primary { background: var(--c-accent); color: #fff; }
+.btn-primary:hover { background: var(--c-accent2); }
+.btn-ghost   { color: var(--c-muted); border-color: var(--c-border2); }
+.btn-ghost:hover { color: var(--c-text); background: var(--c-surface2); }
+.btn-danger  { background: rgba(248,81,73,.12); color: var(--c-red);   border-color: rgba(248,81,73,.25); }
+.btn-danger:hover  { background: rgba(248,81,73,.22); }
+.btn-success { background: rgba(63,185,80,.12);  color: var(--c-green); border-color: rgba(63,185,80,.25); }
+.btn-success:hover { background: rgba(63,185,80,.22); }
+.btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+.btn:disabled { opacity: .4; pointer-events: none; }
+
+input {
+  background: var(--c-surface2); border: 1px solid var(--c-border2);
+  color: var(--c-text); border-radius: 8px; padding: 8px 12px;
+  font-family: inherit; font-size: 13px; outline: none; width: 100%;
+  transition: border-color .15s;
+}
+input:focus { border-color: var(--c-accent); box-shadow: 0 0 0 3px rgba(47,129,247,.15); }
+input::placeholder { color: var(--c-muted); }
+
+/* LOGIN */
+#loginPage {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(47,129,247,.2) 0%, transparent 65%), var(--c-bg);
+}
+.login-box {
+  width: 380px; background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: 16px; padding: 40px 36px; box-shadow: var(--shadow);
+}
+.login-logo { text-align: center; margin-bottom: 32px; }
+.login-icon { width: 64px; height: 64px; margin: 0 auto 16px; background: rgba(47,129,247,.12); border: 1px solid rgba(47,129,247,.2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+.login-logo h1 { font-size: 20px; font-weight: 700; }
+.login-logo p  { font-size: 13px; color: var(--c-muted); margin-top: 4px; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 11px; font-weight: 600; color: var(--c-muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+.err-box { background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.25); color: var(--c-red); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+.login-submit { width: 100%; justify-content: center; padding: 10px; font-size: 14px; margin-top: 4px; }
+.mini-spin { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; display: none; flex-shrink: 0; }
+
+/* APP */
+#app { display: none; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-w);
+  background: var(--c-surface); border-right: 1px solid var(--c-border);
+  display: flex; flex-direction: column; z-index: 200;
+}
+.sidebar-brand {
+  height: var(--header-h); display: flex; align-items: center; gap: 10px;
+  padding: 0 16px; border-bottom: 1px solid var(--c-border); flex-shrink: 0;
+}
+.brand-icon { width: 32px; height: 32px; background: rgba(47,129,247,.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.brand-name { font-size: 15px; font-weight: 700; }
+.brand-ver  { margin-left: auto; font-size: 10px; font-weight: 600; background: rgba(47,129,247,.12); color: var(--c-accent); border-radius: 4px; padding: 2px 7px; }
+
+.nav-section { padding: 20px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--c-muted); }
+.nav-list { list-style: none; padding: 0 8px; }
+.nav-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--c-muted); background: none; border: none; transition: all .12s; text-align: left;
+}
+.nav-btn:hover  { background: var(--c-surface2); color: var(--c-text); }
+.nav-btn.active { background: rgba(47,129,247,.12); color: var(--c-accent); font-weight: 600; }
+.nav-btn .ni { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-foot { margin-top: auto; padding: 14px 18px; border-top: 1px solid var(--c-border); font-size: 12px; color: var(--c-muted); display: flex; align-items: center; gap: 7px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 0 2px rgba(63,185,80,.25); }
+
+/* Main area */
+.main { margin-left: var(--sidebar-w); display: flex; flex-direction: column; min-height: 100vh; }
+.topbar {
+  height: var(--header-h); background: var(--c-surface); border-bottom: 1px solid var(--c-border);
+  display: flex; align-items: center; padding: 0 24px; gap: 12px;
+  position: sticky; top: 0; z-index: 100;
+}
+.topbar-title { font-size: 16px; font-weight: 700; flex: 1; }
+.topbar-user  { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--c-muted); }
+.u-ava { width: 28px; height: 28px; border-radius: 50%; background: rgba(47,129,247,.15); color: var(--c-accent); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.content { padding: 24px; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* Stat cards */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.s-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); padding: 18px 20px; transition: border-color .15s; }
+.s-card:hover { border-color: var(--c-border2); }
+.s-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
+.s-val  { font-size: 26px; font-weight: 800; line-height: 1; }
+.s-lbl  { font-size: 12px; color: var(--c-muted); margin-top: 4px; }
+
+/* Card */
+.card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); overflow: hidden; }
+.card-head { display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--c-border); }
+.card-head h2 { font-size: 14px; font-weight: 700; flex: 1; }
+.num-badge { font-size: 11px; font-weight: 700; background: rgba(47,129,247,.12); color: var(--c-accent); border-radius: 20px; padding: 2px 9px; }
+
+/* Search */
+.srch { position: relative; }
+.srch input { padding-left: 30px; }
+.srch-ico { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--c-muted); font-size: 13px; pointer-events: none; }
+
+/* Table */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--c-muted); background: rgba(255,255,255,.015); border-bottom: 1px solid var(--c-border); white-space: nowrap; }
+tbody td { padding: 11px 16px; border-bottom: 1px solid var(--c-border); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,.018); }
+.empty-row td { text-align: center; padding: 48px; color: var(--c-muted); }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge-green  { background: rgba(63,185,80,.1);   color: var(--c-green);  }
+.badge-red    { background: rgba(248,81,73,.1);   color: var(--c-red);    }
+.badge-blue   { background: rgba(47,129,247,.1);  color: var(--c-accent); }
+.badge-purple { background: rgba(163,113,247,.1); color: var(--c-purple); }
+.badge-orange { background: rgba(210,153,34,.1);  color: var(--c-orange); }
+.badge-gray   { background: rgba(125,133,144,.1); color: var(--c-muted);  }
+
+/* Avatar + name cell */
+.ava { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.nc { display: flex; align-items: center; gap: 10px; }
+.nc .nm { font-weight: 600; }
+.nc .sb { font-size: 11px; color: var(--c-muted); }
+
+/* Pager */
+.pager { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--c-border); }
+.pager-info { font-size: 12px; color: var(--c-muted); margin-left: auto; }
+
+/* System */
+.sys-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.sys-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); padding: 18px 20px; }
+.sys-ico { font-size: 24px; margin-bottom: 10px; }
+.sys-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--c-muted); margin-bottom: 4px; }
+.sys-val { font-size: 22px; font-weight: 800; }
+.sys-sub { font-size: 12px; color: var(--c-muted); margin-top: 3px; }
+
+/* Loader */
+.ld-wrap { display: flex; align-items: center; justify-content: center; padding: 56px; }
+.loader  { width: 30px; height: 30px; border: 2.5px solid var(--c-border); border-top-color: var(--c-accent); border-radius: 50%; animation: spin .65s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toasts */
+#toasts { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { display: flex; align-items: center; gap: 8px; padding: 11px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow); border: 1px solid transparent; pointer-events: auto; animation: tIn .2s ease; }
+.toast-ok  { background: var(--c-surface2); color: var(--c-green);  border-color: rgba(63,185,80,.2); }
+.toast-err { background: var(--c-surface2); color: var(--c-red);    border-color: rgba(248,81,73,.2); }
+@keyframes tIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+/* Dashboard row */
+.dash-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .dash-row { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .sidebar { display: none; } .main { margin-left: 0; } .stats-grid { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+
+<!-- ════ LOGIN ════ -->
+<div id="loginPage">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-icon">✈️</div>
+      <h1>Teamgram Admin</h1>
+      <p>Secure management panel</p>
+    </div>
+    <div id="loginErr" class="err-box"></div>
+    <form id="loginForm" autocomplete="on">
+      <div class="form-group">
+        <label class="form-label" for="lu">Username</label>
+        <input id="lu" type="text" placeholder="admin" autocomplete="username" required/>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="lp">Password</label>
+        <input id="lp" type="password" placeholder="••••••••" autocomplete="current-password" required/>
+      </div>
+      <button type="submit" class="btn btn-primary login-submit" id="loginBtn">
+        <span class="mini-spin" id="loginSpn"></span>
+        Sign in
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ════ APP ════ -->
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">✈️</div>
+      <span class="brand-name">TG Admin</span>
+      <span class="brand-ver">v1.0</span>
+    </div>
+
+    <div class="nav-section">Overview</div>
+    <ul class="nav-list">
+      <li><button class="nav-btn active" data-page="dashboard"><span class="ni">▦</span>Dashboard</button></li>
+    </ul>
+    <div class="nav-section">Management</div>
+    <ul class="nav-list">
+      <li><button class="nav-btn" data-page="users"><span class="ni">👥</span>Users</button></li>
+      <li><button class="nav-btn" data-page="chats"><span class="ni">💬</span>Chats</button></li>
+    </ul>
+    <div class="nav-section">Infrastructure</div>
+    <ul class="nav-list">
+      <li><button class="nav-btn" data-page="system"><span class="ni">⚙️</span>System</button></li>
+    </ul>
+
+    <div class="sidebar-foot"><div class="dot"></div><span id="sfoot">Connected</span></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <span class="topbar-title" id="pgTitle">Dashboard</span>
+      <div class="topbar-user">
+        <div class="u-ava" id="uAva">A</div>
+        <span id="uName">admin</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
+    </header>
+
+    <div class="content">
+
+      <!-- Dashboard -->
+      <div id="page-dashboard" class="page active">
+        <div class="stats-grid">
+          <div class="s-card">
+            <div class="s-icon" style="background:rgba(47,129,247,.12)">👥</div>
+            <div class="s-val" id="sv-u">—</div><div class="s-lbl">Total Users</div>
+          </div>
+          <div class="s-card">
+            <div class="s-icon" style="background:rgba(248,81,73,.12)">🚫</div>
+            <div class="s-val" id="sv-d">—</div><div class="s-lbl">Banned / Deleted</div>
+          </div>
+          <div class="s-card">
+            <div class="s-icon" style="background:rgba(210,153,34,.12)">⭐</div>
+            <div class="s-val" id="sv-p">—</div><div class="s-lbl">Premium</div>
+          </div>
+          <div class="s-card">
+            <div class="s-icon" style="background:rgba(163,113,247,.12)">🤖</div>
+            <div class="s-val" id="sv-b">—</div><div class="s-lbl">Bots</div>
+          </div>
+          <div class="s-card">
+            <div class="s-icon" style="background:rgba(63,185,80,.12)">💬</div>
+            <div class="s-val" id="sv-c">—</div><div class="s-lbl">Chats</div>
+          </div>
+          <div class="s-card">
+            <div class="s-icon" style="background:rgba(88,166,255,.1)">✉️</div>
+            <div class="s-val" id="sv-m">—</div><div class="s-lbl">Messages</div>
+          </div>
+        </div>
+        <div class="dash-row">
+          <div class="card">
+            <div class="card-head"><h2>Recent Users</h2><span style="font-size:11px;color:var(--c-muted)">last 8</span></div>
+            <div class="tbl-wrap"><table>
+              <thead><tr><th>User</th><th>Phone</th><th>Status</th></tr></thead>
+              <tbody id="d-u"><tr class="empty-row"><td colspan="3">Loading…</td></tr></tbody>
+            </table></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Recent Chats</h2><span style="font-size:11px;color:var(--c-muted)">last 8</span></div>
+            <div class="tbl-wrap"><table>
+              <thead><tr><th>Chat</th><th>Members</th><th>Status</th></tr></thead>
+              <tbody id="d-c"><tr class="empty-row"><td colspan="3">Loading…</td></tr></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users -->
+      <div id="page-users" class="page">
+        <div class="card">
+          <div class="card-head">
+            <h2>Users</h2>
+            <span class="num-badge" id="utot">0</span>
+            <div class="srch" style="width:220px;margin-left:auto">
+              <span class="srch-ico">🔍</span>
+              <input id="u-q" type="search" placeholder="Name / phone / @username…"/>
+            </div>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>ID</th><th>User</th><th>Phone</th><th>Type</th><th>Status</th><th>Registered</th><th></th></tr></thead>
+            <tbody id="u-tb"><tr class="empty-row"><td colspan="7"><div class="ld-wrap"><div class="loader"></div></div></td></tr></tbody>
+          </table></div>
+          <div class="pager">
+            <button class="btn btn-ghost btn-sm" id="u-pv" onclick="uPg(-1)">← Prev</button>
+            <button class="btn btn-ghost btn-sm" id="u-nx" onclick="uPg(+1)">Next →</button>
+            <span class="pager-info" id="u-pi"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chats -->
+      <div id="page-chats" class="page">
+        <div class="card">
+          <div class="card-head">
+            <h2>Chats &amp; Groups</h2>
+            <span class="num-badge" id="ctot">0</span>
+            <div class="srch" style="width:220px;margin-left:auto">
+              <span class="srch-ico">🔍</span>
+              <input id="c-q" type="search" placeholder="Chat title…"/>
+            </div>
+          </div>
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>ID</th><th>Chat</th><th>Members</th><th>Creator ID</th><th>Status</th><th>Created</th></tr></thead>
+            <tbody id="c-tb"><tr class="empty-row"><td colspan="6"><div class="ld-wrap"><div class="loader"></div></div></td></tr></tbody>
+          </table></div>
+          <div class="pager">
+            <button class="btn btn-ghost btn-sm" id="c-pv" onclick="cPg(-1)">← Prev</button>
+            <button class="btn btn-ghost btn-sm" id="c-nx" onclick="cPg(+1)">Next →</button>
+            <span class="pager-info" id="c-pi"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- System -->
+      <div id="page-system" class="page">
+        <div class="sys-grid" id="sys-g">
+          <div class="sys-card"><div class="ld-wrap" style="padding:16px"><div class="loader"></div></div></div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ── state ──────────────────────────────────────
+let TOK = localStorage.getItem('tg_tok') || '';
+let uP=1, uTot=0, uQ='';
+let cP=1, cTot=0, cQ='';
+
+// ── init ───────────────────────────────────────
+(async()=>{
+  if(TOK){
+    const r=await fetch('/api/stats',{headers:H()});
+    if(r.ok){ boot(); return; }
+    TOK=''; localStorage.removeItem('tg_tok');
+  }
+  document.getElementById('loginPage').style.display='flex';
+})();
+
+const H=()=>({'X-Auth-Token':TOK,'Content-Type':'application/json'});
+
+// ── login ──────────────────────────────────────
+document.getElementById('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const btn=document.getElementById('loginBtn');
+  const spn=document.getElementById('loginSpn');
+  const err=document.getElementById('loginErr');
+  btn.disabled=true; spn.style.display='inline-block'; err.style.display='none';
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:document.getElementById('lu').value,password:document.getElementById('lp').value})});
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||'Login failed');
+    TOK=d.token; localStorage.setItem('tg_tok',TOK);
+    document.getElementById('loginPage').style.display='none';
+    boot();
+  }catch(ex){ err.textContent=ex.message; err.style.display='block'; }
+  finally{ btn.disabled=false; spn.style.display='none'; }
+});
+
+async function doLogout(){
+  await fetch('/api/logout',{method:'POST',headers:H()}).catch(()=>{});
+  TOK=''; localStorage.removeItem('tg_tok'); location.reload();
+}
+
+// ── boot ───────────────────────────────────────
+function boot(){
+  document.getElementById('app').style.display='block';
+  const un=document.getElementById('lu')?.value||'admin';
+  document.getElementById('uName').textContent=un;
+  document.getElementById('uAva').textContent=un[0].toUpperCase();
+
+  document.querySelectorAll('.nav-btn[data-page]').forEach(b=>
+    b.addEventListener('click',()=>go(b.dataset.page)));
+
+  let ud,cd;
+  document.getElementById('u-q').addEventListener('input',e=>{
+    clearTimeout(ud); ud=setTimeout(()=>{ uQ=e.target.value; uP=1; loadU(); },280);
+  });
+  document.getElementById('c-q').addEventListener('input',e=>{
+    clearTimeout(cd); cd=setTimeout(()=>{ cQ=e.target.value; cP=1; loadC(); },280);
+  });
+  go('dashboard');
+}
+
+// ── navigation ─────────────────────────────────
+const TITLES={dashboard:'Dashboard',users:'Users',chats:'Chats & Groups',system:'System'};
+function go(p){
+  document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelectorAll('.nav-btn[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===p));
+  document.getElementById('pgTitle').textContent=TITLES[p]||p;
+  if(p==='dashboard') loadD();
+  if(p==='users')     loadU();
+  if(p==='chats')     loadC();
+  if(p==='system')    loadSys();
+}
+
+// ── api helper ─────────────────────────────────
+async function api(url,method='GET'){
+  try{
+    const r=await fetch(url,{method,headers:H()});
+    if(r.status===401){ doLogout(); return null; }
+    const d=await r.json();
+    if(!r.ok){ toast(d.error||'Error',false); return null; }
+    return d;
+  }catch(e){ toast('Network error',false); return null; }
+}
+
+// ── dashboard ──────────────────────────────────
+async function loadD(){
+  const[st,us,cs]=await Promise.all([api('/api/stats'),api('/api/users?page=1'),api('/api/chats?page=1')]);
+  if(st){
+    S('sv-u',N(st.total_users)); S('sv-d',N(st.deleted_users));
+    S('sv-p',N(st.premium_users)); S('sv-b',N(st.bot_users));
+    S('sv-c',N(st.total_chats)); S('sv-m',N(st.total_messages));
+  }
+  if(us?.items) S('d-u', us.items.slice(0,8).map(u=>`
+    <tr>
+      <td><div class="nc"><div class="ava" style="background:${AC(u.id)}">${INI(u.first_name,u.last_name)}</div>
+        <div><div class="nm">${X(u.first_name)} ${X(u.last_name)}</div>
+        <div class="sb">${u.username?'@'+X(u.username):''}</div></div></div></td>
+      <td style="font-size:12px;color:var(--c-muted)">${X(u.phone)||'—'}</td>
+      <td>${u.deleted?B('Banned','red'):B('Active','green')}</td>
+    </tr>`).join('')||'<tr class="empty-row"><td colspan="3">No data</td></tr>','innerHTML');
+
+  if(cs?.items) S('d-c', cs.items.slice(0,8).map(c=>`
+    <tr>
+      <td><div class="nc"><div class="ava" style="background:${AC(c.id)}">💬</div>
+        <span class="nm">${X(c.title)||'—'}</span></div></td>
+      <td>${N(c.participant_count)}</td>
+      <td>${c.deactivated?B('Off','gray'):B('Active','green')}</td>
+    </tr>`).join('')||'<tr class="empty-row"><td colspan="3">No data</td></tr>','innerHTML');
+}
+
+// ── users ──────────────────────────────────────
+async function loadU(){
+  S('u-tb','<tr class="empty-row"><td colspan="7"><div class="ld-wrap"><div class="loader"></div></div></td></tr>','innerHTML');
+  const d=await api(`/api/users?page=${uP}&q=${E(uQ)}`);
+  if(!d) return;
+  uTot=d.total;
+  S('utot',N(uTot)); S('u-pi',`Page ${d.page} · ${N(uTot)} total`);
+  document.getElementById('u-pv').disabled=d.page<=1;
+  document.getElementById('u-nx').disabled=d.page*20>=uTot;
+  S('u-tb', d.items?.length
+    ? d.items.map(u=>`
+      <tr>
+        <td style="font-size:11px;color:var(--c-muted)">${u.id}</td>
+        <td><div class="nc"><div class="ava" style="background:${AC(u.id)}">${INI(u.first_name,u.last_name)}</div>
+          <div><div class="nm">${X(u.first_name)} ${X(u.last_name)}</div>
+          <div class="sb">${u.username?'@'+X(u.username):'&nbsp;'}</div></div></div></td>
+        <td style="font-size:12px">${X(u.phone)||'—'}</td>
+        <td>${u.is_bot?B('Bot','purple'):u.premium?B('⭐ Premium','orange'):B('User','gray')}</td>
+        <td>${u.deleted?B('Banned','red'):B('Active','green')}</td>
+        <td style="font-size:11px;color:var(--c-muted)">${FD(u.date2)}</td>
+        <td>${u.deleted
+          ?`<button class="btn btn-success btn-sm" onclick="doUnban(${u.id},this)">Unban</button>`
+          :`<button class="btn btn-danger  btn-sm" onclick="doBan(${u.id},this)">Ban</button>`}</td>
+      </tr>`).join('')
+    : '<tr class="empty-row"><td colspan="7">No users found</td></tr>','innerHTML');
+}
+function uPg(d){ uP=Math.max(1,uP+d); loadU(); }
+async function doBan(id,btn){
+  if(!confirm(`Ban user #${id}?`)) return;
+  btn.disabled=true;
+  if(await api(`/api/users/${id}/ban`,'POST')){ toast('User banned'); loadU(); }
+  else btn.disabled=false;
+}
+async function doUnban(id,btn){
+  btn.disabled=true;
+  if(await api(`/api/users/${id}/unban`,'POST')){ toast('User unbanned'); loadU(); }
+  else btn.disabled=false;
+}
+
+// ── chats ──────────────────────────────────────
+async function loadC(){
+  S('c-tb','<tr class="empty-row"><td colspan="6"><div class="ld-wrap"><div class="loader"></div></div></td></tr>','innerHTML');
+  const d=await api(`/api/chats?page=${cP}&q=${E(cQ)}`);
+  if(!d) return;
+  cTot=d.total;
+  S('ctot',N(cTot)); S('c-pi',`Page ${d.page} · ${N(cTot)} total`);
+  document.getElementById('c-pv').disabled=d.page<=1;
+  document.getElementById('c-nx').disabled=d.page*20>=cTot;
+  S('c-tb', d.items?.length
+    ? d.items.map(c=>`
+      <tr>
+        <td style="font-size:11px;color:var(--c-muted)">${c.id}</td>
+        <td><div class="nc"><div class="ava" style="background:${AC(c.id)}">💬</div>
+          <span class="nm">${X(c.title)||'—'}</span></div></td>
+        <td>${N(c.participant_count)}</td>
+        <td style="font-family:monospace;font-size:12px">${c.creator_user_id}</td>
+        <td>${c.deactivated?B('Deactivated','gray'):B('Active','green')}</td>
+        <td style="font-size:11px;color:var(--c-muted)">${FD(c.date2)}</td>
+      </tr>`).join('')
+    : '<tr class="empty-row"><td colspan="6">No chats found</td></tr>','innerHTML');
+}
+function cPg(d){ cP=Math.max(1,cP+d); loadC(); }
+
+// ── system ─────────────────────────────────────
+async function loadSys(){
+  const d=await api('/api/system'); if(!d) return;
+  S('sys-g',[
+    ['🕐','Uptime',         FU(d.uptime_seconds),         'since last start'],
+    ['🔧','Go Runtime',     d.go_version,                  `${d.os} / ${d.arch}`],
+    ['⚡','CPU Cores',      d.cpus,                        'logical processors'],
+    ['🔄','Goroutines',     N(d.goroutines),               'active'],
+    ['💾','Heap Alloc',     d.heap_alloc_mb.toFixed(1)+' MB', `sys: ${d.heap_sys_mb.toFixed(1)} MB`],
+    ['📦','Total Alloc',    d.total_alloc_mb.toFixed(1)+' MB','cumulative'],
+    ['🗑','GC Runs',        N(d.gc_runs),                  'garbage collections'],
+    ['🗄','DB Connections', d.db_open_conns,               `in-use: ${d.db_in_use} · idle: ${d.db_idle}`],
+  ].map(([ico,lbl,val,sub])=>`
+    <div class="sys-card">
+      <div class="sys-ico">${ico}</div>
+      <div class="sys-lbl">${lbl}</div>
+      <div class="sys-val">${val}</div>
+      <div class="sys-sub">${sub}</div>
+    </div>`).join(''),'innerHTML');
+}
+
+// ── helpers ────────────────────────────────────
+const COLS=['#2f81f7','#3fb950','#a371f7','#d29922','#f85149','#58a6ff','#39d353','#ff7b72'];
+const AC=id=>COLS[Math.abs(+id)%COLS.length];
+const INI=(f,l)=>(((f||'')[0]||'').toUpperCase()+((l||'')[0]||'').toUpperCase())||'?';
+const X=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const N=n=>n!=null?Number(n).toLocaleString():'—';
+const E=s=>encodeURIComponent(s||'');
+const FD=ts=>!ts?'—':new Date(ts*1000).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const FU=s=>{const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sc=s%60;return d>0?`${d}d ${h}h ${m}m`:h>0?`${h}h ${m}m`:`${m}m ${sc}s`;};
+const B=(t,c)=>`<span class="badge badge-${c}">${t}</span>`;
+function S(id,v,prop='textContent'){ const e=document.getElementById(id); if(e) e[prop]=v; }
+function toast(msg,ok=true){
+  const el=document.createElement('div');
+  el.className=`toast ${ok?'toast-ok':'toast-err'}`;
+  el.textContent=(ok?'✓ ':'✕ ')+msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# ── Stage 1: Build Next.js UI ───────────────────────────────────────────────
+FROM node:20-alpine AS ui
+WORKDIR /ui
+COPY admin-ui/package*.json ./
+RUN npm ci --prefer-offline
+COPY admin-ui/ ./
+# NEXT_PUBLIC_API_URL is empty — frontend calls same origin
+RUN NEXT_PUBLIC_API_URL= npm run build
+
+# ── Stage 2: Build Go binary ─────────────────────────────────────────────────
+FROM golang:1.23-alpine AS go-build
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/tg-admin ./app/admin/cmd/admin
+
+# ── Stage 3: Final image ──────────────────────────────────────────────────────
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
+
+COPY --from=go-build  /bin/tg-admin      ./tg-admin
+COPY --from=ui        /ui/out            ./web
+COPY teamgramd/etc/admin.yaml            ./etc/admin.yaml
+
+EXPOSE 8080
+CMD ["./tg-admin", "-f", "./etc/admin.yaml"]

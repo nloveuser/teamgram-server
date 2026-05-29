@@ -1,0 +1,14 @@
+Host: 0.0.0.0
+Port: 8080
+
+# Admin panel credentials
+Username: admin
+Password: changeme
+
+# Path to Next.js static export (admin-ui/out/).
+# Leave empty to use the embedded fallback HTML.
+# For local dev: point to the Next.js export output
+WebDir: ../admin-ui/out
+
+MySQL:
+  DSN: root:@tcp(127.0.0.1:3306)/teamgram?charset=utf8mb4&parseTime=true
