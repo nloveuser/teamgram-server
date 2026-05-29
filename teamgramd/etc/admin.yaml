@@ -5,10 +5,10 @@ Port: 8080
 Username: admin
 Password: changeme
 
-# Path to Next.js static export (admin-ui/out/).
-# Leave empty to use the embedded fallback HTML.
-# For local dev: point to the Next.js export output
-WebDir: ../admin-ui/out
+# Path to Next.js static export.
+# Docker: Dockerfile copies admin-ui/out to ./web → use ./web
+# Local dev: ../admin-ui/out
+WebDir: ./web
 
 MySQL:
   DSN: root:root@tcp(mysql:3306)/teamgram?charset=utf8mb4&parseTime=true

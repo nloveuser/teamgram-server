@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -38,12 +39,13 @@ var embeddedWeb embed.FS
 
 // Config is loaded from admin.yaml.
 type Config struct {
-	Host     string `yaml:"Host"`
-	Port     int    `yaml:"Port"`
-	Username string `yaml:"Username"`
-	Password string `yaml:"Password"`
-	WebDir   string `yaml:"WebDir"` // path to Next.js out/ dir; empty = use embedded fallback
-	MySQL    struct {
+	Host        string `yaml:"Host"`
+	Port        int    `yaml:"Port"`
+	Username    string `yaml:"Username"`
+	Password    string `yaml:"Password"`
+	WebDir      string `yaml:"WebDir"`      // path to Next.js out/ dir; empty = use embedded fallback
+	SessionFile string `yaml:"SessionFile"` // persist sessions here to survive restarts
+	MySQL       struct {
 		DSN string `yaml:"DSN"`
 	} `yaml:"MySQL"`
 }
@@ -85,8 +87,53 @@ func New(cfg Config) (*Server, error) {
 		sessions: make(map[string]*session),
 		start:    time.Now(),
 	}
+	s.loadSessions()
 	s.sc = s.detectSchema()
 	return s, nil
+}
+
+// sessionFile returns the path for persisting sessions.
+func (s *Server) sessionFile() string {
+	if s.cfg.SessionFile != "" {
+		return s.cfg.SessionFile
+	}
+	return filepath.Join(filepath.Dir(os.Args[0]), "sessions.json")
+}
+
+// loadSessions restores sessions from disk (best-effort).
+func (s *Server) loadSessions() {
+	data, err := os.ReadFile(s.sessionFile())
+	if err != nil {
+		return // first start or file missing — that's fine
+	}
+	var raw map[string]int64
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return
+	}
+	now := time.Now()
+	for token, expiryUnix := range raw {
+		exp := time.Unix(expiryUnix, 0)
+		if exp.After(now) {
+			s.sessions[token] = &session{expiry: exp}
+		}
+	}
+	log.Printf("admin: loaded %d sessions from disk", len(s.sessions))
+}
+
+// saveSessions persists active sessions to disk (best-effort).
+func (s *Server) saveSessions() {
+	s.mu.Lock()
+	raw := make(map[string]int64, len(s.sessions))
+	for token, sess := range s.sessions {
+		raw[token] = sess.expiry.Unix()
+	}
+	s.mu.Unlock()
+
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return
+	}
+	os.WriteFile(s.sessionFile(), data, 0600) //nolint:errcheck
 }
 
 func (s *Server) detectSchema() schema {
@@ -266,6 +313,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.sessions[token] = &session{expiry: time.Now().Add(8 * time.Hour)}
 	s.mu.Unlock()
+	s.saveSessions()
 	http.SetCookie(w, &http.Cookie{Name: "admin_token", Value: token, Path: "/", MaxAge: 28800, HttpOnly: true})
 	writeJSON(w, http.StatusOK, map[string]string{"token": token})
 }
@@ -275,6 +323,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	delete(s.sessions, token)
 	s.mu.Unlock()
+	s.saveSessions()
 	http.SetCookie(w, &http.Cookie{Name: "admin_token", Value: "", MaxAge: -1, Path: "/"})
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
 }
