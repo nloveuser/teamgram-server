@@ -50,10 +50,21 @@ type Config struct {
 
 type session struct{ expiry time.Time }
 
+// schema holds which optional columns exist in the DB.
+// Populated once in New() by querying INFORMATION_SCHEMA.
+type schema struct {
+	usersPremium  bool // users.premium
+	usersColor    bool // users.color, profile_color
+	usersDate2    bool // users.date2
+	chatsDate2    bool // chats.date2 (vs chats.date)
+	messagesTable bool // messages table exists
+}
+
 // Server is the HTTP server for the admin panel.
 type Server struct {
 	cfg      Config
 	db       *sql.DB
+	sc       schema
 	sessions map[string]*session
 	mu       sync.Mutex
 	start    time.Time
@@ -67,12 +78,41 @@ func New(cfg Config) (*Server, error) {
 	db.SetMaxOpenConns(16)
 	db.SetMaxIdleConns(4)
 	db.SetConnMaxLifetime(time.Hour)
-	return &Server{
+
+	s := &Server{
 		cfg:      cfg,
 		db:       db,
 		sessions: make(map[string]*session),
 		start:    time.Now(),
-	}, nil
+	}
+	s.sc = s.detectSchema()
+	return s, nil
+}
+
+func (s *Server) detectSchema() schema {
+	col := func(table, column string) bool {
+		var n int
+		s.db.QueryRow(
+			`SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+			 WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?`,
+			table, column).Scan(&n) //nolint:errcheck
+		return n > 0
+	}
+	tbl := func(table string) bool {
+		var n int
+		s.db.QueryRow(
+			`SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+			 WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?`,
+			table).Scan(&n) //nolint:errcheck
+		return n > 0
+	}
+	return schema{
+		usersPremium:  col("users", "premium"),
+		usersColor:    col("users", "color"),
+		usersDate2:    col("users", "date2"),
+		chatsDate2:    col("chats", "date2"),
+		messagesTable: tbl("messages"),
+	}
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -251,12 +291,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		TotalMessages int64 `json:"total_messages"`
 	}
 	var st stats
-	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE deleted=0`).Scan(&st.TotalUsers)        //nolint:errcheck
-	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE deleted=1`).Scan(&st.DeletedUsers)     //nolint:errcheck
-	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE is_bot=1 AND deleted=0`).Scan(&st.BotUsers)    //nolint:errcheck
-	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE premium=1 AND deleted=0`).Scan(&st.PremiumUsers) //nolint:errcheck
-	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM chats WHERE deactivated=0`).Scan(&st.TotalChats)   //nolint:errcheck
-	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM messages WHERE deleted=0`).Scan(&st.TotalMessages) //nolint:errcheck
+	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE deleted=0`).Scan(&st.TotalUsers)    //nolint:errcheck
+	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE deleted=1`).Scan(&st.DeletedUsers) //nolint:errcheck
+	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE is_bot=1 AND deleted=0`).Scan(&st.BotUsers) //nolint:errcheck
+	if s.sc.usersPremium {
+		s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM users WHERE premium=1 AND deleted=0`).Scan(&st.PremiumUsers) //nolint:errcheck
+	}
+	s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM chats WHERE deactivated=0`).Scan(&st.TotalChats) //nolint:errcheck
+	if s.sc.messagesTable {
+		s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM messages WHERE deleted=0`).Scan(&st.TotalMessages) //nolint:errcheck
+	}
 	writeJSON(w, http.StatusOK, st)
 }
 
@@ -294,15 +338,33 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		Date2             int64  `json:"date2"`
 	}
 
+	// Build SELECT list based on detected schema
+	premiumExpr := "0"
+	if s.sc.usersPremium {
+		premiumExpr = "premium"
+	}
+	colorExpr := "0"
+	if s.sc.usersColor {
+		colorExpr = "color"
+	}
+	profileColorExpr := "0"
+	if s.sc.usersColor {
+		profileColorExpr = "profile_color"
+	}
+	dateExpr := "UNIX_TIMESTAMP(created_at)"
+	if s.sc.usersDate2 {
+		dateExpr = "date2"
+	}
+	cols := `id, first_name, last_name, username, phone, COALESCE(about,''),
+	         is_bot, ` + premiumExpr + `, verified, scam, fake, support,
+	         restricted, COALESCE(restriction_reason,''), ` + colorExpr + `, ` + profileColorExpr + `,
+	         deleted, state, ` + dateExpr
+
 	var (
 		rows  *sql.Rows
 		err   error
 		total int64
 	)
-	const cols = `id, first_name, last_name, username, phone, COALESCE(about,''),
-	              is_bot, premium, verified, scam, fake, support,
-	              restricted, COALESCE(restriction_reason,''), color, profile_color,
-	              deleted, state, date2`
 
 	if search != "" {
 		like := "%" + search + "%"
@@ -414,22 +476,36 @@ type flagsBody struct {
 
 func (s *Server) applyFlags(r *http.Request, ids []int64, body flagsBody) error {
 	for _, id := range ids {
-		_, err := s.db.ExecContext(r.Context(),
-			`UPDATE users SET
+		// Base fields always present
+		q := `UPDATE users SET
 			  verified           = COALESCE(?, verified),
 			  scam               = COALESCE(?, scam),
 			  fake               = COALESCE(?, fake),
 			  support            = COALESCE(?, support),
-			  premium            = COALESCE(?, premium),
 			  restricted         = COALESCE(?, restricted),
-			  restriction_reason = COALESCE(?, restriction_reason),
-			  color              = COALESCE(?, color),
-			  profile_color      = COALESCE(?, profile_color)
-			 WHERE id = ?`,
-			body.Verified, body.Scam, body.Fake, body.Support, body.Premium,
-			body.Restricted, body.RestrictionReason,
-			body.Color, body.ProfileColor, id)
-		if err != nil {
+			  restriction_reason = COALESCE(?, restriction_reason)`
+		args := []any{body.Verified, body.Scam, body.Fake, body.Support,
+			body.Restricted, body.RestrictionReason}
+
+		// Optional columns added by migrations
+		if s.sc.usersPremium && body.Premium != nil {
+			q += `, premium = ?`
+			args = append(args, *body.Premium)
+		}
+		if s.sc.usersColor {
+			if body.Color != nil {
+				q += `, color = ?`
+				args = append(args, *body.Color)
+			}
+			if body.ProfileColor != nil {
+				q += `, profile_color = ?`
+				args = append(args, *body.ProfileColor)
+			}
+		}
+		q += ` WHERE id = ?`
+		args = append(args, id)
+
+		if _, err := s.db.ExecContext(r.Context(), q, args...); err != nil {
 			return err
 		}
 	}
@@ -595,7 +671,12 @@ func (s *Server) handleChats(w http.ResponseWriter, r *http.Request) {
 		total int64
 	)
 
-	const cols = `id, title, COALESCE(about,''), participant_count, creator_user_id, deactivated, date2`
+	chatDateExpr := "`date`"
+	if s.sc.chatsDate2 {
+		chatDateExpr = "date2"
+	}
+	cols := `id, title, COALESCE(about,''), participant_count, creator_user_id, deactivated, ` + chatDateExpr
+
 	if search != "" {
 		like := "%" + search + "%"
 		s.db.QueryRowContext(r.Context(), `SELECT COUNT(*) FROM chats WHERE title LIKE ?`, like).Scan(&total) //nolint:errcheck
