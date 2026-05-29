@@ -12,3 +12,9 @@ WebDir: ./web
 
 MySQL:
   DSN: root:root@tcp(mysql:3306)/teamgram?charset=utf8mb4&parseTime=true
+
+# Redis for instant cache invalidation after admin changes.
+# Leave Host empty to skip Redis (changes will reflect after 15s TTL expires).
+Redis:
+  Host: redis:6379
+  Pass: ""

@@ -10,10 +10,13 @@
 package dao
 
 import (
+	"time"
+
 	"github.com/teamgram/marmota/pkg/stores/sqlc"
 	"github.com/teamgram/marmota/pkg/stores/sqlx"
 	"github.com/teamgram/teamgram-server/app/service/biz/message/internal/config"
 	"github.com/teamgram/teamgram-server/app/service/biz/message/internal/plugin"
+	"github.com/zeromicro/go-zero/core/stores/cache"
 )
 
 // Dao dao.
@@ -28,7 +31,7 @@ func New(c config.Config, plugin plugin.MessagePlugin) *Dao {
 	db := sqlx.NewMySQL(&c.Mysql)
 	return &Dao{
 		Mysql:      newMysqlDao(db, c.MessageSharding),
-		CachedConn: sqlc.NewConn(db, c.Cache),
+		CachedConn: sqlc.NewConn(db, c.Cache, cache.WithExpiry(60*time.Second)),
 		Plugin:     plugin,
 	}
 }

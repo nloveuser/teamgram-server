@@ -26,7 +26,5 @@ import (
 // messages.reportSponsoredMessage#1af3dbb8 peer:InputPeer random_id:bytes option:bytes = channels.SponsoredMessageReportResult;
 func (c *SponsoredMessagesCore) MessagesReportSponsoredMessage(in *mtproto.TLMessagesReportSponsoredMessage) (*mtproto.Channels_SponsoredMessageReportResult, error) {
 	// TODO: not impl
-	c.Logger.Errorf("messages.reportSponsoredMessage blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

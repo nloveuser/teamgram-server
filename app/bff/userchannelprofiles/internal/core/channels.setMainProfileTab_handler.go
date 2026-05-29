@@ -26,7 +26,5 @@ import (
 // channels.setMainProfileTab#3583fcb1 channel:InputChannel tab:ProfileTab = Bool;
 func (c *UserChannelProfilesCore) ChannelsSetMainProfileTab(in *mtproto.TLChannelsSetMainProfileTab) (*mtproto.Bool, error) {
 	// TODO: not impl
-	c.Logger.Errorf("channels.setMainProfileTab blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return mtproto.BoolTrue(), nil
 }

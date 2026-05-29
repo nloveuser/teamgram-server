@@ -222,9 +222,7 @@ func (c *MessagesCore) MessagesGetMessagesViews(in *mtproto.TLMessagesGetMessage
 		//	c.Logger.Errorf("messages.getMessagesViews#5784d3e -  error: invalid peer(%v) type", peer)
 		//	return nil, mtproto.ErrMsgIdInvalid
 		//}
-		c.Logger.Errorf("messages.getRecentLocations blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-		return nil, mtproto.ErrEnterpriseIsBlocked
+		return nil, mtproto.ErrFeatureNotAvailable
 	default:
 		c.Logger.Errorf("messages.getMessagesViews#5784d3e -  error: invalid peer(%v) type", peer)
 		return nil, mtproto.ErrInputRequestInvalid

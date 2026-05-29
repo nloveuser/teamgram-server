@@ -25,7 +25,5 @@ import (
 // messages.getFutureChatCreatorAfterLeave#3b7d0ea6 peer:InputPeer = User;
 func (c *ChatsCore) MessagesGetFutureChatCreatorAfterLeave(in *mtproto.TLMessagesGetFutureChatCreatorAfterLeave) (*mtproto.User, error) {
 	// TODO: not impl
-	c.Logger.Errorf("messages.getFutureChatCreatorAfterLeave blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

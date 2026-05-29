@@ -26,9 +26,7 @@ func (c *MessageCore) MessageUpdatePinnedMessageId(in *message.TLMessageUpdatePi
 			c.Logger.Errorf("message.updatePinnedMessageId - error: %v", err)
 		}
 	case mtproto.PEER_CHANNEL:
-		c.Logger.Errorf("message.updatePinnedMessageId blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-		return nil, mtproto.ErrEnterpriseIsBlocked
+	return mtproto.BoolTrue(), nil
 	}
 
 	return mtproto.BoolTrue, nil

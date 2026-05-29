@@ -26,7 +26,5 @@ import (
 // messages.getSavedDialogsByID#6f6f9c96 flags:# parent_peer:flags.1?InputPeer ids:Vector<InputPeer> = messages.SavedDialogs;
 func (c *SavedMessageDialogsCore) MessagesGetSavedDialogsByID(in *mtproto.TLMessagesGetSavedDialogsByID) (*mtproto.Messages_SavedDialogs, error) {
 	// TODO: not impl
-	c.Logger.Errorf("messages.getSavedDialogsByID blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

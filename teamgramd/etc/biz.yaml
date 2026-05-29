@@ -28,9 +28,9 @@ Mysql:
   IdleTimeout: 4h
 
 Cache:
-  - Host: localhost:6379
+  - Host: redis:6379
 KV:
-  - Host: localhost:6379
+  - Host: redis:6379
 
 MediaClient:
   Etcd:

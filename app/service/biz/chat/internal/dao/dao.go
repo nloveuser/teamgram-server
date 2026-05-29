@@ -19,6 +19,8 @@
 package dao
 
 import (
+	"time"
+
 	"github.com/teamgram/marmota/pkg/net/rpcx"
 	"github.com/teamgram/teamgram-server/app/service/biz/chat/plugin"
 
@@ -26,6 +28,7 @@ import (
 	"github.com/teamgram/marmota/pkg/stores/sqlx"
 	"github.com/teamgram/teamgram-server/app/service/biz/chat/internal/config"
 	media_client "github.com/teamgram/teamgram-server/app/service/media/client"
+	"github.com/zeromicro/go-zero/core/stores/cache"
 )
 
 // Dao dao.
@@ -41,7 +44,7 @@ func New(c config.Config, plugin plugin.ChatPlugin) (dao *Dao) {
 	db := sqlx.NewMySQL(&c.Mysql)
 	return &Dao{
 		Mysql:       newMysqlDao(db),
-		CachedConn:  sqlc.NewConn(db, c.Cache),
+		CachedConn:  sqlc.NewConn(db, c.Cache, cache.WithExpiry(15*time.Second)),
 		MediaClient: media_client.NewMediaClient(rpcx.GetCachedRpcClient(c.MediaClient)),
 		Plugin:      plugin,
 	}

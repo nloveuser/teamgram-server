@@ -128,9 +128,7 @@ func (c *MessagesCore) MessagesGetMessageEditData(in *mtproto.TLMessagesGetMessa
 		}
 	case mtproto.PEER_CHANNEL:
 		// TODO: not impl
-		c.Logger.Errorf("messages.getMessageEditData blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-		return nil, mtproto.ErrEnterpriseIsBlocked
+		return nil, mtproto.ErrFeatureNotAvailable
 	default:
 		err = mtproto.ErrPeerIdInvalid
 		c.Logger.Errorf("messages.getMessageEditData - error: %v", err)

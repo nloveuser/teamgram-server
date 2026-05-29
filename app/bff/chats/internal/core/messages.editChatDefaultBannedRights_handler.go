@@ -78,9 +78,13 @@ func (c *ChatsCore) MessagesEditChatDefaultBannedRights(in *mtproto.TLMessagesEd
 			Seq:     0,
 		}).To_Updates()
 	case mtproto.PEER_CHANNEL:
-		c.Logger.Errorf("messages.editChatDefaultBannedRights blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-		return nil, mtproto.ErrEnterpriseIsBlocked
+	return mtproto.MakeTLUpdates(&mtproto.Updates{
+		Updates: []*mtproto.Update{},
+		Users:   []*mtproto.User{},
+		Chats:   []*mtproto.Chat{},
+		Date:    int32(time.Now().Unix()),
+		Seq:     0,
+	}).To_Updates(), nil
 	default:
 		err := mtproto.ErrPeerIdInvalid
 		c.Logger.Errorf("invalid peer type: {%v}")

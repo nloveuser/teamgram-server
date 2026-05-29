@@ -26,7 +26,5 @@ import (
 // account.updateVerified flags:# id:long verified:flags.0?true = User;
 func (c *UserChannelProfilesCore) AccountUpdateVerified(in *mtproto.TLAccountUpdateVerified) (*mtproto.User, error) {
 	// TODO: not impl
-	c.Logger.Errorf("account.updateVerified blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

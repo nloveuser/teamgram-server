@@ -24,4 +24,4 @@ Log:
 NodeId: 1
 
 SeqIDGen:
-  - Host: 127.0.0.1:6379
+  - Host: redis:6379

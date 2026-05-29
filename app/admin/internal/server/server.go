@@ -32,6 +32,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/zeromicro/go-zero/core/stores/redis"
 )
 
 //go:embed web/index.html
@@ -48,6 +49,10 @@ type Config struct {
 	MySQL       struct {
 		DSN string `yaml:"DSN"`
 	} `yaml:"MySQL"`
+	Redis struct {
+		Host string `yaml:"Host"` // e.g. redis:6379
+		Pass string `yaml:"Pass"`
+	} `yaml:"Redis"`
 }
 
 type session struct{ expiry time.Time }
@@ -66,6 +71,7 @@ type schema struct {
 type Server struct {
 	cfg      Config
 	db       *sql.DB
+	rdb      *redis.Redis // optional Redis client for cache invalidation
 	sc       schema
 	sessions map[string]*session
 	mu       sync.Mutex
@@ -87,9 +93,35 @@ func New(cfg Config) (*Server, error) {
 		sessions: make(map[string]*session),
 		start:    time.Now(),
 	}
+
+	// Optional Redis for instant cache invalidation after admin changes
+	if cfg.Redis.Host != "" {
+		s.rdb = redis.MustNewRedis(redis.RedisConf{
+			Host: cfg.Redis.Host,
+			Pass: cfg.Redis.Pass,
+			Type: "node",
+		})
+		log.Printf("admin: Redis connected at %s", cfg.Redis.Host)
+	}
+
 	s.loadSessions()
 	s.sc = s.detectSchema()
 	return s, nil
+}
+
+// flushUserCache removes user data from Redis cache so the next read goes to MySQL.
+// Key format mirrors biz/user service: "user_data.2#<id>"
+func (s *Server) flushUserCache(id int64) {
+	if s.rdb == nil {
+		return
+	}
+	keys := []string{
+		fmt.Sprintf("user_data.2#%d", id),
+		fmt.Sprintf("phone_user.1#%d", id), // phone→user mapping
+	}
+	for _, k := range keys {
+		s.rdb.Del(k) //nolint:errcheck
+	}
 }
 
 // sessionFile returns the path for persisting sessions.
@@ -480,10 +512,12 @@ func (s *Server) handleBanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Best-effort: remove active auth sessions
-	s.db.ExecContext(r.Context(), `DELETE FROM auth_users WHERE user_id=?`, id)              //nolint:errcheck
+	s.db.ExecContext(r.Context(), `DELETE FROM auth_users WHERE user_id=?`, id)                 //nolint:errcheck
 	s.db.ExecContext(r.Context(), `UPDATE user_presences SET expires_in=0 WHERE user_id=?`, id) //nolint:errcheck
+	s.flushUserCache(id)
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
 }
+
 
 // handleDeleteUser soft-deletes an account (marks as deleted without "admin_ban" reason).
 // The account appears as "Deleted Account" to others but can be restored.
@@ -597,6 +631,7 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	s.flushUserCache(id)
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
 }
 
@@ -722,6 +757,7 @@ func (s *Server) handleUserFlags(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	s.flushUserCache(id)
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
 }
 
@@ -791,6 +827,9 @@ func (s *Server) handleBulkFlags(w http.ResponseWriter, r *http.Request) {
 	if err := s.applyFlags(r, req.IDs, req.Flags); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
+	}
+	for _, id := range req.IDs {
+		s.flushUserCache(id)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": "true", "updated": len(req.IDs)})
 }

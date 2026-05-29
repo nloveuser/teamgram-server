@@ -26,7 +26,5 @@ import (
 // channels.getMessageAuthor#ece2a0e6 channel:InputChannel id:int = User;
 func (c *SavedMessageDialogsCore) ChannelsGetMessageAuthor(in *mtproto.TLChannelsGetMessageAuthor) (*mtproto.User, error) {
 	// TODO: not impl
-	c.Logger.Errorf("channels.getMessageAuthor blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

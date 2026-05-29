@@ -26,7 +26,5 @@ import (
 // contacts.updateContactNote#139f63fb id:InputUser note:TextWithEntities = Bool;
 func (c *ContactsCore) ContactsUpdateContactNote(in *mtproto.TLContactsUpdateContactNote) (*mtproto.Bool, error) {
 	// TODO: not impl
-	c.Logger.Errorf("contacts.updateContactNote blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return mtproto.BoolTrue(), nil
 }

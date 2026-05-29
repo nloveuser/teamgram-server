@@ -10,9 +10,12 @@
 package dao
 
 import (
+	"time"
+
 	"github.com/teamgram/marmota/pkg/stores/sqlc"
 	"github.com/teamgram/marmota/pkg/stores/sqlx"
 	"github.com/teamgram/teamgram-server/app/service/biz/dialog/internal/config"
+	"github.com/zeromicro/go-zero/core/stores/cache"
 )
 
 // Dao dao.
@@ -26,6 +29,6 @@ func New(c config.Config) (dao *Dao) {
 	db := sqlx.NewMySQL(&c.Mysql)
 	return &Dao{
 		Mysql:      newMysqlDao(db),
-		CachedConn: sqlc.NewConn(db, c.Cache),
+		CachedConn: sqlc.NewConn(db, c.Cache, cache.WithExpiry(15*time.Second)),
 	}
 }

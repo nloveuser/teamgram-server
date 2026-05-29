@@ -19,6 +19,7 @@
 package core
 
 import (
+	"time"
 	"github.com/teamgram/proto/mtproto"
 )
 
@@ -26,7 +27,11 @@ import (
 // messages.migrateChat#a2875319 chat_id:long = Updates;
 func (c *ChatsCore) MessagesMigrateChat(in *mtproto.TLMessagesMigrateChat) (*mtproto.Updates, error) {
 	// TODO: not impl
-	c.Logger.Errorf("messages.migrateChat blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return mtproto.MakeTLUpdates(&mtproto.Updates{
+		Updates: []*mtproto.Update{},
+		Users:   []*mtproto.User{},
+		Chats:   []*mtproto.Chat{},
+		Date:    int32(time.Now().Unix()),
+		Seq:     0,
+	}).To_Updates(), nil
 }

@@ -22,7 +22,7 @@ Log:
 #  Batcher: jaeger
   
 Cache:
-  - Host: 127.0.0.1:6379
+  - Host: redis:6379
 
 AuthSession:
   Etcd:

@@ -23,7 +23,7 @@ Log:
 #  Batcher: jaeger
 
 KV:
-  - Host: localhost:6379
+  - Host: redis:6379
 
 Code:
   Name: "none"

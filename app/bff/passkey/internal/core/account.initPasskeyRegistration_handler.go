@@ -26,7 +26,5 @@ import (
 // account.initPasskeyRegistration#429547e8 = account.PasskeyRegistrationOptions;
 func (c *PasskeyCore) AccountInitPasskeyRegistration(in *mtproto.TLAccountInitPasskeyRegistration) (*mtproto.Account_PasskeyRegistrationOptions, error) {
 	// TODO: not impl
-	c.Logger.Errorf("account.initPasskeyRegistration blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

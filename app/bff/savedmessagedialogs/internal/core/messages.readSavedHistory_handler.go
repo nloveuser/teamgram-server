@@ -26,7 +26,5 @@ import (
 // messages.readSavedHistory#ba4a3b5b parent_peer:InputPeer peer:InputPeer max_id:int = Bool;
 func (c *SavedMessageDialogsCore) MessagesReadSavedHistory(in *mtproto.TLMessagesReadSavedHistory) (*mtproto.Bool, error) {
 	// TODO: not impl
-	c.Logger.Errorf("messages.readSavedHistory blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return mtproto.BoolTrue(), nil
 }

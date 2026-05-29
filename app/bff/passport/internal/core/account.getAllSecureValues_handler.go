@@ -26,7 +26,5 @@ import (
 // account.getAllSecureValues#b288bc7d = Vector<SecureValue>;
 func (c *PassportCore) AccountGetAllSecureValues(in *mtproto.TLAccountGetAllSecureValues) (*mtproto.Vector_SecureValue, error) {
 	// TODO: not impl
-	c.Logger.Errorf("account.getAllSecureValues blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

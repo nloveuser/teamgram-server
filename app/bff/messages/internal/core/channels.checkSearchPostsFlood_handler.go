@@ -26,7 +26,5 @@ import (
 // channels.checkSearchPostsFlood#22567115 flags:# query:flags.0?string = SearchPostsFlood;
 func (c *MessagesCore) ChannelsCheckSearchPostsFlood(in *mtproto.TLChannelsCheckSearchPostsFlood) (*mtproto.SearchPostsFlood, error) {
 	// TODO: not impl
-	c.Logger.Errorf("channels.checkSearchPostsFlood blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

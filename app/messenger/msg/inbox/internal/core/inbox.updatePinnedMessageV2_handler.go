@@ -27,7 +27,5 @@ import (
 // inbox.updatePinnedMessageV2 flags:# user_id:long unpin:flags.1?true peer_type:int peer_id:long id:int dialog_message_id:long layer:flags.3?int server_id:flags.4?string session_id:flags.5?long client_req_msg_id:flags.6?long = Void;
 func (c *InboxCore) InboxUpdatePinnedMessageV2(in *inbox.TLInboxUpdatePinnedMessageV2) (*mtproto.Void, error) {
 	// TODO: not impl
-	c.Logger.Errorf("inbox.updatePinnedMessageV2 blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

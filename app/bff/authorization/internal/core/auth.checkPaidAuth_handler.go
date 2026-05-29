@@ -26,7 +26,5 @@ import (
 // auth.checkPaidAuth#56e59f9c phone_number:string phone_code_hash:string form_id:long = auth.SentCode;
 func (c *AuthorizationCore) AuthCheckPaidAuth(in *mtproto.TLAuthCheckPaidAuth) (*mtproto.Auth_SentCode, error) {
 	// TODO: not impl
-	c.Logger.Errorf("auth.checkPaidAuth blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }

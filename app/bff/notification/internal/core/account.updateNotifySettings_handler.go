@@ -105,9 +105,7 @@ func (c *NotificationCore) AccountUpdateNotifySettings(in *mtproto.TLAccountUpda
 				return nil, err
 			}
 		} else {
-			c.Logger.Errorf("account.updateNotifySettings blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-			return nil, mtproto.ErrEnterpriseIsBlocked
+	return mtproto.BoolTrue(), nil
 		}
 	default:
 		err = mtproto.ErrPeerIdInvalid

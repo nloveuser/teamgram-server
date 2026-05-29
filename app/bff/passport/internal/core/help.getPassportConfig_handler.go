@@ -26,7 +26,5 @@ import (
 // help.getPassportConfig#c661ad08 hash:int = help.PassportConfig;
 func (c *PassportCore) HelpGetPassportConfig(in *mtproto.TLHelpGetPassportConfig) (*mtproto.Help_PassportConfig, error) {
 	// TODO: not impl
-	c.Logger.Errorf("help.getPassportConfig blocked, License key from https://teamgram.net required to unlock enterprise features.")
-
-	return nil, mtproto.ErrEnterpriseIsBlocked
+	return nil, mtproto.ErrFeatureNotAvailable
 }
